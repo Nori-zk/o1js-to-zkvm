@@ -1,0 +1,16 @@
+{
+  "name": "o1js-to-zkvm",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "o1js": "github:o1-labs/o1js#a42f9f789f3d113e06ab933022c63835fc563c34"
+  }
+}
