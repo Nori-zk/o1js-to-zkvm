@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Command } from 'commander';
@@ -24,8 +25,8 @@ async function writeJson(filePath: string, data: unknown) {
 }
 
 const program = new Command()
-  .name('cube-root-64')
-  .description('CLI for the cube-root-64 ZkFunction circuit');
+  .name('o1js-cli')
+  .description('CLI for compiling, proving, and verifying o1js circuits');
 
 program
   .command('compile')

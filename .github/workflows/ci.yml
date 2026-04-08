@@ -7,8 +7,75 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
+  lint:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.92.0"
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "cargo-workspace"
+      - name: Cache SP1 + protoc
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.sp1
+            ~/.rustup/toolchains/succinct
+            ~/.local/bin/protoc
+            ~/.local/include/google
+          key: sp1-v6.0.2-protoc-27.3-${{ runner.os }}
+      - name: Install SP1 toolchain and protoc
+        run: make install
+      - name: Add SP1 and protoc to PATH
+        run: |
+          echo "$HOME/.sp1/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - run: make lint-check
+
+  ts-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: make deps
+      - run: make ts-unit-tests
+
+  ts-e2e-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: make deps
+      - run: make ts-e2e-tests
+
+  rust-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.92.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "cargo-workspace"
+      - run: make rust-unit-tests
+
+  rust-e2e-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -17,6 +84,30 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.92.0"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "cargo-workspace"
+
+      - name: Cache SP1 + protoc
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.sp1
+            ~/.rustup/toolchains/succinct
+            ~/.local/bin/protoc
+            ~/.local/include/google
+          key: sp1-v6.0.2-protoc-27.3-${{ runner.os }}
+
+      - name: Install SP1 toolchain and protoc
+        run: make install
+
+      - name: Add SP1 and protoc to PATH
+        run: |
+          echo "$HOME/.sp1/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - run: make rust-e2e-tests
