@@ -158,7 +158,6 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-integer",
  "num-traits",
- "rayon",
  "zeroize",
 ]
 
@@ -199,7 +198,6 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
  "paste",
- "rayon",
  "zeroize",
 ]
 
@@ -286,7 +284,6 @@ dependencies = [
  "arrayvec",
  "digest",
  "num-bigint 0.4.6",
- "rayon",
 ]
 
 [[package]]
@@ -318,7 +315,6 @@ checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
- "rayon",
 ]
 
 [[package]]
@@ -1687,7 +1683,6 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.6.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=878e3758ff6e81e708a11e4b0286908cecbb3dfa#878e3758ff6e81e708a11e4b0286908cecbb3dfa"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -2114,7 +2109,6 @@ dependencies = [
 [[package]]
 name = "internal-tracing"
 version = "0.6.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=878e3758ff6e81e708a11e4b0286908cecbb3dfa#878e3758ff6e81e708a11e4b0286908cecbb3dfa"
 
 [[package]]
 name = "ipnet"
@@ -2233,7 +2227,6 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.6.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=878e3758ff6e81e708a11e4b0286908cecbb3dfa#878e3758ff6e81e708a11e4b0286908cecbb3dfa"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -2417,19 +2410,18 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mina-curves"
 version = "0.6.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=878e3758ff6e81e708a11e4b0286908cecbb3dfa#878e3758ff6e81e708a11e4b0286908cecbb3dfa"
 dependencies = [
  "ark-bn254",
  "ark-ec",
  "ark-ff 0.5.0",
  "ark-std 0.5.0",
  "num-bigint 0.4.6",
+ "sp1-zkvm",
 ]
 
 [[package]]
 name = "mina-poseidon"
 version = "0.6.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=878e3758ff6e81e708a11e4b0286908cecbb3dfa#878e3758ff6e81e708a11e4b0286908cecbb3dfa"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -2659,7 +2651,6 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 [[package]]
 name = "o1-utils"
 version = "0.6.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=878e3758ff6e81e708a11e4b0286908cecbb3dfa#878e3758ff6e81e708a11e4b0286908cecbb3dfa"
 dependencies = [
  "ark-ff 0.5.0",
  "ark-poly",
@@ -2681,6 +2672,7 @@ dependencies = [
 name = "o1-verifier"
 version = "0.1.0"
 dependencies = [
+ "mina-curves",
  "o1-verifier-lib",
  "rand 0.8.5",
  "rmp-serde",
@@ -3199,7 +3191,6 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.6.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=878e3758ff6e81e708a11e4b0286908cecbb3dfa#878e3758ff6e81e708a11e4b0286908cecbb3dfa"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
