@@ -26,7 +26,7 @@ SP1 programs.
 make install
 ```
 
-Installs the SP1 toolchain (v6.0.2) and protoc.
+Installs the SP1 toolchain (v6.1.0) and protoc.
 
 ## Build
 
@@ -64,7 +64,28 @@ Runs `pickles-verifier`'s native test suite over the full fixture matrix
 ```sh
 make prove-cpu        # rayon-parallel CPU prover
 make prove-cuda       # local NVIDIA GPU via sp1-gpu-server
+make prove-network    # Succinct prover network (see .env.example)
 ```
+
+Env vars are loaded from `.env` at the repo root (see `.env.example`).
+Shell vars take precedence over `.env`. Network mode reads:
+
+| Var | Default | Notes |
+|---|---|---|
+| `NETWORK_PRIVATE_KEY` | — | **required**; signs auction requests |
+| `NETWORK_RPC_URL` | Succinct mainnet | |
+| `SP1_NETWORK_MODE` | `mainnet` | `mainnet` \| `reserved` |
+| `SP1_FULFILLMENT_STRATEGY` | `auction` | `auction` \| `hosted` \| `reserved` |
+| `SP1_PROOF_TYPE` | `core` | `core` \| `compressed` \| `plonk` \| `groth16` |
+| `SP1_MAX_PRICE_PER_PGU` | SDK | u64, max bid per bPGU |
+| `SP1_TIMEOUT_SECS` | `600` | request timeout |
+| `SP1_SKIP_SIMULATION` | `false` | when true, must set the two below |
+| `SP1_CYCLE_LIMIT` | from sim | u64 |
+| `SP1_GAS_LIMIT` | from sim | u64 |
+| `SP1_WHITELIST` | SDK pool | comma-separated 0x… prover addresses |
+
+Use `SP1_PROOF_TYPE=plonk` or `groth16` for an on-chain-verifiable
+wrapped proof. `SP1_PROOF_TYPE` also applies to `prove-cpu` / `prove-cuda`.
 
 ## Refresh the mainnet fixture
 

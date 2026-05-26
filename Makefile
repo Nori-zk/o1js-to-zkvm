@@ -1,4 +1,4 @@
-.PHONY: help install build-rust rust-unit-tests rust-e2e-tests rust-e2e-tests-profile prove-cpu prove-cuda lint-check lint dump-simplechain-fixtures clear-simplechain-fixtures dump-treeproofreturn-fixtures clear-treeproofreturn-fixtures dump-nrr-fixtures clear-nrr-fixtures fetch-mainnet-fixture
+.PHONY: help install build-rust rust-unit-tests rust-e2e-tests rust-e2e-tests-profile prove-cpu prove-cuda prove-network lint-check lint dump-simplechain-fixtures clear-simplechain-fixtures dump-treeproofreturn-fixtures clear-treeproofreturn-fixtures dump-nrr-fixtures clear-nrr-fixtures fetch-mainnet-fixture
 
 # Default fixture: the real mainnet blockchain SNARK we fetch via the
 # `fetch_blockchain_fixture` OCaml tool. The guest's build.rs reads
@@ -50,6 +50,9 @@ prove-cpu: ## Generate a real SP1 proof on the host CPU (rayon-parallel; tune RA
 
 prove-cuda: ## Generate a real SP1 proof on a local NVIDIA GPU (downloads sp1-gpu-server on first run)
 	SP1_PROVER=cuda ./scripts/rust-prove.sh
+
+prove-network: ## Generate a real SP1 proof via the Succinct prover network (requires NETWORK_PRIVATE_KEY)
+	SP1_PROVER=network ./scripts/rust-prove.sh
 
 lint-check: ## Run all linters and formatters in check-only mode
 	cargo fmt -p o1-verifier -p o1-verifier-host -p pickles-verifier -- --check
