@@ -15,9 +15,11 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+use core::slice;
+
 use pickles_verifier::serialize::decode_verifier_blob;
 use pickles_verifier::types::VerifiableProof;
-use pickles_verifier::verify;
+use pickles_verifier::{batching_rng, check_accumulators, compute_public_inputs, kimchi_dlog_check};
 
 /// 8-byte aligned wrapper around `include_bytes!`. The blob's pod-cast
 /// sections (`PodVesta` / `PodPallas`) require 8-byte alignment for the
@@ -39,8 +41,33 @@ pub fn main() {
     let proof: VerifiableProof = sp1_zkvm::io::read();
     tracker(b"cycle-tracker-report-end:setup\n");
 
+    // Reborrow as a 1-element slice so the staged API (which takes
+    // `&[VerifiableProof]`) doesn't require us to move/clone the proof.
+    let proofs = slice::from_ref(&proof);
+
     tracker(b"cycle-tracker-report-start:verify\n");
-    let valid = verify(&verifier, &proof);
+
+    tracker(b"cycle-tracker-report-start:accumulator_check\n");
+    let acc_ok = check_accumulators(&verifier, proofs);
+    tracker(b"cycle-tracker-report-end:accumulator_check\n");
+
+    let valid = if !acc_ok {
+        false
+    } else {
+        tracker(b"cycle-tracker-report-start:public_inputs\n");
+        let pis = compute_public_inputs(&verifier, proofs);
+        tracker(b"cycle-tracker-report-end:public_inputs\n");
+
+        tracker(b"cycle-tracker-report-start:batching_rng\n");
+        let mut rng = batching_rng(proofs, &pis);
+        tracker(b"cycle-tracker-report-end:batching_rng\n");
+
+        tracker(b"cycle-tracker-report-start:kimchi_dlog_check\n");
+        let ok = kimchi_dlog_check(&verifier, proofs, &pis, &mut rng);
+        tracker(b"cycle-tracker-report-end:kimchi_dlog_check\n");
+        ok
+    };
+
     tracker(b"cycle-tracker-report-end:verify\n");
 
     sp1_zkvm::io::commit(&valid);

@@ -18,3 +18,16 @@ ark-ff = { version = "0.5", default-features = false }
 ark-ec = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
 bytemuck = { version = "1", default-features = false, features = ["derive"] }
+
+# Local SP1 fork that adds Pasta (Pallas + Vesta) executor-level precompiles.
+# See ../sp1-pasta-fork. This [patch] overrides the git deps above so every
+# sp1-* crate (including transitive ones like sp1-core-executor, sp1-curves)
+# is sourced from the local checkout.
+[patch."https://github.com/succinctlabs/sp1"]
+sp1-zkvm = { path = "../sp1-pasta-fork/crates/zkvm/entrypoint" }
+sp1-lib = { path = "../sp1-pasta-fork/crates/zkvm/lib" }
+sp1-sdk = { path = "../sp1-pasta-fork/crates/sdk" }
+sp1-build = { path = "../sp1-pasta-fork/crates/build" }
+sp1-core-executor = { path = "../sp1-pasta-fork/crates/core/executor" }
+sp1-curves = { path = "../sp1-pasta-fork/crates/curves" }
+sp1-primitives = { path = "../sp1-pasta-fork/crates/primitives" }

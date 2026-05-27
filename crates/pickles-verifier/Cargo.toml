@@ -46,3 +46,10 @@ o1-utils = { path = "../../mina/src/lib/crypto/proof-systems/utils", default-fea
 # std-only (fixture wire/parsing + host-side conversion)
 serde_json = { version = "1", optional = true }
 hex = { version = "0.4", optional = true }
+
+# Only pulled in when building for the SP1 zkVM target; used by
+# `precompile_msm` to call `syscall_vesta_add/double` + `syscall_pallas_add/double`.
+# Off-target the syscall arms are `#[cfg(target_os = "zkvm")]`-gated and the
+# module falls back to arkworks point arithmetic for host tests.
+[target.'cfg(target_os = "zkvm")'.dependencies]
+sp1-zkvm = { workspace = true }

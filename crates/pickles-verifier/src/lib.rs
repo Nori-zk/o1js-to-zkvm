@@ -20,6 +20,7 @@
 extern crate alloc;
 
 pub mod deferred;
+pub mod precompile_msm;
 pub mod serialize;
 pub mod types;
 
@@ -31,8 +32,7 @@ pub mod convert;
 
 use alloc::vec::Vec;
 
-use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
-use mina_curves::pasta::Vesta;
+use ark_ff::PrimeField;
 use mina_poseidon::sponge::ScalarChallenge;
 use poly_commitment::commitment::b_poly_coefficients;
 
@@ -47,14 +47,61 @@ pub fn verify(verifier: &Verifier, proof: &VerifiableProof) -> bool {
 /// Verify a batch of proofs sharing one tag. Deterministic + `no_std`.
 ///
 /// Three stages, AND-folded:
-///   1. [`accumulator_check`] per proof.
-///   2. Reconstruct each proof's wrap kimchi public input from its expanded
-///      deferred values ([`deferred::expand_deferred`] +
-///      [`deferred::wrap_public_input`]).
-///   3. One amortized kimchi `batch_verify_with_rng` over the batch, seeded by
-///      [`batching_rng`] (Fiat–Shamir-derived; see its doc for the soundness
-///      argument).
+///   1. [`check_accumulators`] (a per-proof [`accumulator_check`]).
+///   2. [`compute_public_inputs`] — reconstruct each proof's wrap kimchi
+///      public input from its expanded deferred values
+///      ([`deferred::expand_deferred`] + [`deferred::wrap_public_input`]).
+///   3. [`kimchi_dlog_check`] — one amortized kimchi `batch_verify_with_rng`
+///      over the batch, seeded by [`batching_rng`] (Fiat–Shamir-derived; see
+///      its doc for the soundness argument).
+///
+/// Each stage is also exposed as its own `pub fn` so callers (e.g. the SP1
+/// guest) can wrap them in cycle-tracker markers individually.
 pub fn verify_batch(verifier: &Verifier, proofs: &[VerifiableProof]) -> bool {
+    if !check_accumulators(verifier, proofs) {
+        return false;
+    }
+    let pis = compute_public_inputs(verifier, proofs);
+    let mut rng = batching_rng(proofs, &pis);
+    kimchi_dlog_check(verifier, proofs, &pis, &mut rng)
+}
+
+/// Stage 1: run [`accumulator_check`] on every proof, short-circuiting on the
+/// first failure. The per-proof check is the Vesta `compute_sg` MSM (see
+/// [`accumulator_check`] for details).
+pub fn check_accumulators(verifier: &Verifier, proofs: &[VerifiableProof]) -> bool {
+    proofs.iter().all(|p| accumulator_check(verifier, p))
+}
+
+/// Stage 2: reconstruct each proof's wrap kimchi public input from its
+/// expanded deferred values. Returns one `Vec<WrapField>` per proof.
+pub fn compute_public_inputs(
+    verifier: &Verifier,
+    proofs: &[VerifiableProof],
+) -> Vec<Vec<types::WrapField>> {
+    proofs
+        .iter()
+        .map(|p| {
+            let dv = deferred::expand_deferred(verifier, p);
+            deferred::wrap_public_input(
+                &dv,
+                p.messages_for_next_step_proof_digest,
+                p.messages_for_next_wrap_proof_digest,
+            )
+        })
+        .collect()
+}
+
+/// Stage 3: the kimchi batched dlog check. Builds `Context`s, the group map,
+/// and the Pasta-specialized sponges, then calls
+/// [`kimchi::verifier::batch_verify_with_rng`]. The bulk of the work — and the
+/// big wrap-side MSM — lives inside that call.
+pub fn kimchi_dlog_check(
+    verifier: &Verifier,
+    proofs: &[VerifiableProof],
+    pis: &[Vec<types::WrapField>],
+    rng: &mut rand_chacha::ChaCha20Rng,
+) -> bool {
     use groupmap::GroupMap;
     use kimchi::verifier::{batch_verify_with_rng, Context};
     use mina_curves::pasta::{Pallas, PallasParameters};
@@ -65,24 +112,6 @@ pub fn verify_batch(verifier: &Verifier, proofs: &[VerifiableProof]) -> bool {
     use poly_commitment::ipa::OpeningProof;
     use rand_chacha::ChaCha20Rng;
     use types::WrapField;
-
-    if !proofs.iter().all(|p| accumulator_check(verifier, p)) {
-        return false;
-    }
-
-    let pis: Vec<Vec<WrapField>> = proofs
-        .iter()
-        .map(|p| {
-            let dv = deferred::expand_deferred(verifier, p);
-            deferred::wrap_public_input(
-                &dv,
-                p.messages_for_next_step_proof_digest,
-                p.messages_for_next_wrap_proof_digest,
-            )
-        })
-        .collect();
-
-    let mut rng = batching_rng(proofs, &pis);
 
     let contexts: Vec<Context<FULL_ROUNDS, Pallas, OpeningProof<Pallas, FULL_ROUNDS>, _>> = proofs
         .iter()
@@ -104,7 +133,7 @@ pub fn verify_batch(verifier: &Verifier, proofs: &[VerifiableProof]) -> bool {
         WrapFrSponge,
         OpeningProof<Pallas, FULL_ROUNDS>,
         ChaCha20Rng,
-    >(&group_map, &contexts, &mut rng)
+    >(&group_map, &contexts, rng)
     .is_ok()
 }
 
@@ -118,7 +147,7 @@ pub fn verify_batch(verifier: &Verifier, proofs: &[VerifiableProof]) -> bool {
 /// `postcard` is used for the (serde-only) `ProverProof`; the public input
 /// uses `CanonicalSerialize` (bare `Vec<Fq>` doesn't impl native serde
 /// `Serialize`, only the proof's `serde_as` wrappers do).
-fn batching_rng(
+pub fn batching_rng(
     proofs: &[VerifiableProof],
     pis: &[Vec<types::WrapField>],
 ) -> rand_chacha::ChaCha20Rng {
@@ -142,11 +171,15 @@ fn batching_rng(
     ChaCha20Rng::from_seed(hasher.finalize().into())
 }
 
-/// Stage 2: the IPA accumulator check. The proof's
-/// `challenge_polynomial_commitment` must equal `compute_sg(bulletproof_challenges)`,
-/// the non-hiding MSM of the IPA challenge polynomial `b(X)`'s coefficients
-/// against the Vesta SRS generators. Plain arkworks MSM rather than the
-/// std-gated `SRS::commit_non_hiding`.
+/// Per-proof IPA accumulator check (used by stage 1
+/// [`check_accumulators`]). The proof's `challenge_polynomial_commitment`
+/// must equal `compute_sg(bulletproof_challenges)`, the non-hiding MSM of
+/// the IPA challenge polynomial `b(X)`'s coefficients against the Vesta SRS
+/// generators.
+///
+/// Uses [`precompile_msm::msm_vesta`], which calls the SP1
+/// `VESTA_ADD/DOUBLE` executor precompile on the guest (256 cycles per
+/// point op) and falls back to arkworks point arithmetic on the host.
 pub fn accumulator_check(verifier: &Verifier, proof: &VerifiableProof) -> bool {
     let chals: Vec<StepField> = proof
         .raw_bulletproof_challenges
@@ -156,9 +189,8 @@ pub fn accumulator_check(verifier: &Verifier, proof: &VerifiableProof) -> bool {
     let coeffs = b_poly_coefficients(&chals);
     let g = &verifier.vesta_srs.g;
     let n = coeffs.len().min(g.len());
-    let computed_sg = <<Vesta as AffineRepr>::Group as VariableBaseMSM>::msm(&g[..n], &coeffs[..n])
-        .expect("compute_sg MSM")
-        .into_affine();
+    let coeffs_bigint: Vec<_> = coeffs[..n].iter().map(|c| c.into_bigint()).collect();
+    let computed_sg = precompile_msm::msm_vesta(&g[..n], &coeffs_bigint);
     computed_sg == proof.challenge_polynomial_commitment
 }
 
@@ -171,7 +203,7 @@ mod tests {
     use super::*;
     use crate::types::{VestaSrs, WrapSrs};
     use crate::wire::{parse_app_statement, parse_wrap_proof, parse_wrap_vk, OcamlProof};
-    use mina_curves::pasta::Pallas;
+    use mina_curves::pasta::{Pallas, Vesta};
     use poly_commitment::precomputed_srs::get_srs;
     use std::sync::{Arc, OnceLock};
 
